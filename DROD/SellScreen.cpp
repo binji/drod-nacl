@@ -1,0 +1,294 @@
+// $Id: SellScreen.cpp 9796 2011-12-10 15:14:52Z mrimer $
+
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is Deadly Rooms of Death.
+ *
+ * The Initial Developer of the Original Code is
+ * Caravel Software.
+ * Portions created by the Initial Developer are Copyright (C)
+ * 2003, 2005 Caravel Software. All Rights Reserved.
+ *
+ * ***** END LICENSE BLOCK ***** */
+
+#include "SellScreen.h"
+#include "DrodFontManager.h"
+#include "DrodSound.h"
+#include <FrontEndLib/BitmapManager.h>
+#include <FrontEndLib/ButtonWidget.h>
+#include <FrontEndLib/FrameWidget.h>
+#include <FrontEndLib/LabelWidget.h>
+#include "../DRODLib/Db.h"
+#include <BackEndLib/Browser.h>
+#include <BackEndLib/Files.h>
+#include <BackEndLib/Ports.h>
+
+// Widget tags.
+const UINT TAG_BUY = 2000;
+const UINT TAG_BACK = 2001;
+const UINT TAG_EXIT = 2002;
+const UINT TAG_GOTOFORUM = 2003;
+
+#define IMAGE_BG      (0)
+#define IMAGE_TEXTS   (1)
+#define IMAGE_SSHOT   (2)
+
+//******************************************************************************
+CSellScreen::CSellScreen()
+	: CDrodScreen(SCR_Sell)
+	, nextSShotToDisplay(-1)
+	, dwNextSShotMove(0)
+	, sellTextIndex(0)
+{
+	const bool bDemo = !IsGameFullVersion();
+
+	const string background = bDemo ? "Sell1" : "Thanks1";
+	this->imageFilenames.push_back(background);
+
+	this->imageFilenames.push_back(string("SellTexts"));
+	this->imageFilenames.push_back(string("StroutOfficeSShots"));
+
+	static const int X_BUY_BUTTON = 746;
+	static const int Y_BUY_BUTTON = 619;
+	static const int X_BACK_BUTTON = X_BUY_BUTTON;
+	static const int Y_BACK_BUTTON = 692;
+	static const int X_EXIT_BUTTON = 882;
+	static const int Y_EXIT_BUTTON = Y_BACK_BUTTON;
+	static const UINT CX_BUY_BUTTON = 268;
+	static const UINT CY_BUY_BUTTON = 70;
+	static const UINT CX_BACK_BUTTON = 132;
+	static const UINT CY_BACK_BUTTON = CY_BUY_BUTTON;
+	static const UINT CX_EXIT_BUTTON = CX_BACK_BUTTON;
+	static const UINT CY_EXIT_BUTTON = CY_BACK_BUTTON;
+
+	CButtonWidget *pButton;
+
+	//Buy button for non-registered versions, forum for registered.
+	if (bDemo)	
+	{
+		pButton = new CButtonWidget(TAG_BUY,
+				X_BUY_BUTTON, Y_BUY_BUTTON, CX_BUY_BUTTON, CY_BUY_BUTTON,
+				g_pTheDB->GetMessageText(MID_BuyNow));
+	} else {
+		pButton = new CButtonWidget(TAG_GOTOFORUM,
+				X_BUY_BUTTON, Y_BUY_BUTTON, CX_BUY_BUTTON, CY_BUY_BUTTON,
+				g_pTheDB->GetMessageText(MID_GoToForum));
+	}
+	AddWidget(pButton);
+
+	pButton = new CButtonWidget(TAG_BACK,
+			X_BACK_BUTTON, Y_BACK_BUTTON, CX_BACK_BUTTON, CY_BACK_BUTTON,
+			g_pTheDB->GetMessageText(MID_Back));
+	AddWidget(pButton);
+
+	pButton = new CButtonWidget(TAG_EXIT,
+			X_EXIT_BUTTON, Y_EXIT_BUTTON, CX_EXIT_BUTTON, CY_EXIT_BUTTON,
+			g_pTheDB->GetMessageText(MID_Exit));
+	AddWidget(pButton);
+}
+
+//*****************************************************************************
+void CSellScreen::MoveScreenshots(SDL_Surface *pDestSurface, const bool bUpdateRect)
+//Slide screenshots around right side of screen.
+{
+	//Time to show a new screenshot?
+	static const UINT SSHOT_DISPLAY_TIME = 2500; //ms
+	const Uint32 dwNow = SDL_GetTicks();
+	if (dwNow >= this->dwNextSShotMove)
+	{
+		this->dwNextSShotMove = dwNow + SSHOT_DISPLAY_TIME;
+		++this->nextSShotToDisplay;
+	}
+
+	//Screenshot dimensions.
+	ASSERT(this->images.size() > IMAGE_SSHOT);
+	const UINT width = this->images[IMAGE_SSHOT]->w;
+	static const UINT SCREENSHOT_HEIGHT = 226;
+
+	//Area where this stuff is occurring.
+	static const int yLower = 243, yUpper = 12;
+	static const SDL_Rect updateRect = {749, yUpper, CScreen::CX_SCREEN - 749, yLower+SCREENSHOT_HEIGHT - yUpper};
+
+	//Redraw background.
+	{
+		SDL_Rect updateRectSrc = updateRect, updateRectDest = updateRect;
+		SDL_BlitSurface(this->images[IMAGE_BG], &updateRectSrc, pDestSurface, &updateRectDest);
+	}
+
+	//Screenshots cycle on and off screen in order.
+	static const UINT SLIDE_DURATION = 1000;
+	float fSlideInterp = (dwNow - (this->dwNextSShotMove - SSHOT_DISPLAY_TIME)) / float(SLIDE_DURATION);
+	if (fSlideInterp > 1.0)
+		fSlideInterp = 1.0;
+	const UINT NUM_SCREENSHOTS = this->images[IMAGE_SSHOT]->h / SCREENSHOT_HEIGHT;
+	UINT index;
+
+	//Show one before previous sliding off.
+	if (this->nextSShotToDisplay > 1)
+	{
+		index = (this->nextSShotToDisplay-2) % NUM_SCREENSHOTS;
+		SDL_Rect sshotSrc = {0, index*SCREENSHOT_HEIGHT, width, SCREENSHOT_HEIGHT};
+		const int xDisplay = updateRect.x + int((CScreen::CX_SCREEN - updateRect.x) * fSlideInterp);
+		SDL_Rect sshotDest = {xDisplay, yUpper, width, SCREENSHOT_HEIGHT};
+		SDL_BlitSurface(this->images[IMAGE_SSHOT], &sshotSrc, pDestSurface, &sshotDest);
+	}
+	//Show previous one sliding up.
+	if (this->nextSShotToDisplay > 0)
+	{
+		index = (this->nextSShotToDisplay-1) % NUM_SCREENSHOTS;
+		SDL_Rect sshotSrc = {0, index*SCREENSHOT_HEIGHT, width, SCREENSHOT_HEIGHT};
+		const int yDisplay = yLower - int((yLower - updateRect.y) * fSlideInterp);
+		SDL_Rect sshotDest = {updateRect.x, yDisplay, width, SCREENSHOT_HEIGHT};
+		SDL_BlitSurface(this->images[IMAGE_SSHOT], &sshotSrc, pDestSurface, &sshotDest);
+	}
+	//Show newest screenshot sliding on.
+	if (this->nextSShotToDisplay >= 0)
+	{
+		index = this->nextSShotToDisplay % NUM_SCREENSHOTS;
+		SDL_Rect sshotSrc = {0, index*SCREENSHOT_HEIGHT, width, SCREENSHOT_HEIGHT};
+		const int xDisplay = CScreen::CX_SCREEN - int((CScreen::CX_SCREEN - updateRect.x) * fSlideInterp);
+		SDL_Rect sshotDest = {xDisplay, yLower, width, SCREENSHOT_HEIGHT};
+		SDL_BlitSurface(this->images[IMAGE_SSHOT], &sshotSrc, pDestSurface, &sshotDest);
+	}
+	
+
+	if (bUpdateRect)
+		SDL_UpdateRect(pDestSurface, updateRect.x, updateRect.y, updateRect.w, updateRect.h);
+}
+
+//*****************************************************************************
+void CSellScreen::OnBetweenEvents()
+//Called between frames.
+{
+	//Slide screenshots along right side.
+	MoveScreenshots(GetDestSurface(), true);
+
+	//Draw effects onto screen.
+	this->pEffects->DrawEffects(true);
+}
+
+//******************************************************************************
+void CSellScreen::OnClick(
+//Handles click events.
+//
+//Params:
+	const UINT dwTagNo) //(in) Widget receiving event.
+{
+	switch (dwTagNo)
+	{
+		case TAG_BACK:
+			GoToScreen(SCR_Return);
+		break;
+
+		case TAG_BUY:
+			GoToBuyNow();
+		break;
+
+		case TAG_EXIT:
+			GoToScreen(SCR_None);
+		break;
+
+		case TAG_GOTOFORUM:
+			GoToForum();
+		break;
+	}
+}
+
+//*****************************************************************************
+void CSellScreen::OnDeactivate()
+{
+}
+
+//*****************************************************************************
+bool CSellScreen::OnQuit()
+//Called when SDL_QUIT event is received.
+//Since this is the exit confirmation screen, any further exit events at this
+//point should always exit the app.
+{
+	GoToScreen(SCR_None);
+	return true;
+}
+
+//******************************************************************************
+void CSellScreen::Paint(
+//Paint the screen.
+//
+//Params:
+	bool bUpdateRect) //(in)   If true (default) and destination
+	                  //    surface is the screen, the screen
+	                  //    will be immediately updated in
+	                  //    the widget's rect.
+{
+	SDL_Surface *pDestSurface = GetDestSurface();
+
+	//Blit the background graphic.
+	ASSERT(this->images.size() > IMAGE_SSHOT);
+	SDL_BlitSurface(this->images[IMAGE_BG], NULL, pDestSurface, NULL);
+
+	//Blit sensational text.
+	static const int TEXT_WIDTH = 341, TEXT_HEIGHT = 163;
+	const int num_texts = this->images[IMAGE_TEXTS]->h / (TEXT_HEIGHT+1);
+	const int text_index = this->sellTextIndex % num_texts;
+	SDL_Rect src_rect = {0, text_index * (TEXT_HEIGHT+1), TEXT_WIDTH, TEXT_HEIGHT};
+	SDL_Rect dest_rect = {380, 527, TEXT_WIDTH, TEXT_HEIGHT};
+	SDL_BlitSurface(this->images[IMAGE_TEXTS], &src_rect, pDestSurface, &dest_rect);
+
+	MoveScreenshots(pDestSurface, false);
+
+	PaintChildren();
+	if (bUpdateRect) UpdateRect();
+}
+
+//
+//Private methods
+//
+
+//******************************************************************************
+bool CSellScreen::SetForActivate()
+//Called before screen is activated and first paint.
+//
+//Returns:
+//True if activation should continue, false if not.
+{
+	g_pTheSound->PlaySong(SONGID_QUIT);
+
+	SelectNextSellText();
+
+	return true;
+}
+
+//******************************************************************************
+void CSellScreen::SelectNextSellText()
+{
+	//Select text for this session.
+	CFiles f;
+	static const char EXIT_NUM_INI_CATEGORY[] = "Startup";
+	static const char EXIT_NUM_INI_STRING[] = "ExitTextNum";
+
+	int nExitTextNum = 0;
+	{
+		string textNum;
+		if (f.GetGameProfileString(EXIT_NUM_INI_CATEGORY, EXIT_NUM_INI_STRING, textNum))
+			nExitTextNum = atoi(textNum.c_str());
+	}
+
+	this->sellTextIndex = nExitTextNum;
+
+	{
+		//Show the following text next session.
+		char cExitScreenNum[12];
+		_itoa(nExitTextNum+1, cExitScreenNum, 10);
+		f.WriteGameProfileString(EXIT_NUM_INI_CATEGORY, EXIT_NUM_INI_STRING, cExitScreenNum);
+	}
+}

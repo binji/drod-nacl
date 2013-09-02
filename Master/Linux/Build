@@ -1,0 +1,23 @@
+#!/bin/bash
+if [ $# -eq 0 ]; then
+	echo "Pass variables to scons (first is default):"
+	echo
+	echo " target  (Build target)  tcb fam util"
+	echo " audio   (Audio system)  sdlmixer fmod"
+	echo " build   (Build type)    release beta debug profile"
+	echo " dist    (Distribution)  none caravel"
+	echo " arch    (Architecture)  i686 amd64 mingw32"
+	echo
+	echo "Optionally you can also pass the name of a library to only build that lib."
+	echo
+	echo "For example:"
+	echo " $0 arch=amd64 dist=caravel"
+	echo " $0 audio=fmod FrontEndLib"
+	echo "etc."
+	exit -1
+fi
+scons "$@" | sed \
+	-e 's,^[a-z0-9-]*g++ .*/\([^/]*\)/\([^/]*\.cpp\),  [CXX]    \1/\2,' \
+	-e 's,^[a-z0-9-]*ar .*/\([^/]*\.a\).*,  [AR]     \1,' \
+	-e 's,^[a-z0-9-]*ranlib .*/\([^/]*\.a\).*,  [RANLIB] \1,'
+exit ${PIPESTATUS[0]}

@@ -1,0 +1,198 @@
+# SConstruct file for DROD
+
+import os, re
+MODPATH={}
+
+# Top source directory
+TOPSRC = '../..'
+# Module paths relative to top source dir (if not .)
+MODPATH['BackEndLib'] = '..'
+MODPATH['FrontEndLib'] = '..'
+
+MINGW_PREFIX = 'i486-mingw32-'
+MINGW_BIN = '/usr/i486-mingw32/bin'
+MINGW_INC = '/usr/i486-mingw32/include'
+
+BUILDDIR = None
+
+def makelib (base, mod):
+	if mod in MODPATH:
+		srcpath = TOPSRC + '/' + MODPATH[mod] + '/' + mod
+	else:
+		srcpath = TOPSRC + '/' + mod
+	objpath = BUILDDIR + '/obj/' + mod
+	env = base.Clone()
+	env.Append(CPPPATH = [srcpath])
+	try:
+		pfile = open(srcpath + '/' + mod + '.vcproj')
+		pat = re.compile(r'RelativePath="\.?\\?([^.]*).cpp"')
+	except IOError:
+		pfile = open(srcpath + '/' + mod + '.dsp')
+		pat = re.compile(r'SOURCE=\.?\\?([^.]*).cpp')
+	srcs = []
+	for line in pfile:
+		match = pat.search(line)
+		if match:
+			srcs.append(match.group(1))
+	pfile.close()
+	srcs.sort()
+	objs = []
+	for src in set(srcs):
+		objs.append(env.Object(objpath + '/' + src, srcpath + '/' + src + '.cpp'))
+	libs[mod] = env.Library(BUILDDIR + '/lib/' + mod, objs)
+	env.Alias(mod, libs[mod])
+
+def makeexe (base, exe, mod):
+	env = base.Clone(LINKSTATIC = base['VIDEOLIB'],
+		LINKTAIL = base['LIBSTDCXXA'],
+		LINKDYNAMIC = '-lexpat ' + base['SOUNDLIB'] + ' -lSDL_ttf ' +
+			SDLLIB + ' -ljpeg -lcurl -lpng -lz')
+	if opt['amd64']:
+		env.Append(LINKDYNAMIC = ' -lmk4')
+	else:
+		env.Append(LINKSTATIC = ' -lmk4')
+	env.Append(LINKSTATE = ' -static-libgcc')
+	makelib(env, mod)
+	llibs = libs[mod]
+	if opt['util']:
+		llibs += libs['DROD']
+	if opt['caravel'] or opt['manifesto']:
+		llibs += libs['CaravelNet']
+	llibs += libs['DRODLib'] + libs['FrontEndLib'] + libs['BackEndLib']
+	env.CXXlink(BUILDDIR + '/bin/' + exe, llibs)
+
+def shell (cmd):
+	return os.popen(cmd).read().rstrip()
+
+def option (opts, name, info, values):
+	global BUILDDIR
+	opts.Add(EnumVariable(name, info, values[0], allowed_values = values, ignorecase = 2))
+	arg = ARGUMENTS.get(name, values[0])
+	one = False
+	for v in values:
+		opt[v] = not cmp(arg, v)
+		one = one or opt[v]
+	if not one:
+		print "Allowed values for '" + name + "' is:"
+		for v in values:
+			print '  *', v
+		Exit(1)
+	if BUILDDIR == None:
+		BUILDDIR = arg
+	else:
+		BUILDDIR += '-' + arg
+
+def checkjpeg (ctx):
+	ctx.Message('Checking for libjpeg... ')
+	result = ctx.TryCompile("#include <stdio.h>\n#include <jpeglib.h>\n", '.c')
+	ctx.Result(result)
+	return result
+
+opt = {}
+libs = {}
+
+opts = Variables()
+option(opts, 'target', 'Target', ('gateb', 'util'))
+option(opts, 'audio', 'Audio engine', ('sdlmixer', 'fmod'))
+option(opts, 'build', 'Build type', ('release', 'beta', 'debug', 'profile'))
+option(opts, 'dist', 'Distributor', ('none', 'caravel', 'manifesto'))
+option(opts, 'arch', 'Arch', ('i686', 'amd64', 'mingw32'))
+
+incpath = [TOPSRC]
+for i in MODPATH:
+	incpath.append(TOPSRC + '/' + MODPATH[i])
+
+if opt['mingw32']:
+	SDLINC = shell(MINGW_BIN + '/sdl-config --cflags')
+	GTKINC = '-DDONT_USE_GTK'
+	SDLLIB = shell(MINGW_BIN + '/sdl-config --libs')
+	incpath.append(MINGW_INC)
+else:
+	SDLINC = shell('sdl-config --cflags')
+	GTKINC = shell('pkg-config gtk+-2.0 --cflags')
+	SDLLIB = shell('sdl-config --libs')
+
+cxxlink = Builder(action = '$CXX $LINKSTATE -o $TARGET $SOURCES -Wl,-Bstatic $LINKSTATIC -Wl,-Bdynamic $LINKDYNAMIC $LINKTAIL')
+env = Environment(ENV = os.environ, CC = 'gcc', CXX = 'g++', CCFLAGS = SDLINC + ' ' + GTKINC + ' -W -Wall -Wno-unused -Wno-uninitialized -Werror', LINKSTATE = '-Wl,-O1 -Wl,--as-needed', CPPPATH = incpath)
+
+if opt['i686']:
+	env.Append(CC = ' -m32', CXX = ' -m32', CCFLAGS = ' -march=i686')
+elif opt['amd64']:
+	env.Append(CC = ' -m64', CXX = ' -m64')
+elif opt['mingw32']:
+	env['CC'] = MINGW_PREFIX + 'gcc'
+	env['CXX'] = MINGW_PREFIX + 'g++'
+	env['AR'] = MINGW_PREFIX + 'ar'
+	env['RANLIB'] = MINGW_PREFIX + 'ranlib'
+	env.Append(CCFLAGS = ' -Wno-unknown-pragmas -DUNICODE', LINKSTATE = ' -lSDLmain')
+
+conf = Configure(env, custom_tests = {'CheckJPEG':checkjpeg})
+check = {}
+check['SDL'] = conf.CheckCHeader('SDL.h')
+check['SDL_ttf'] = conf.CheckCHeader('SDL_ttf.h')
+if opt['sdlmixer']:
+	check['SDL_mixer'] = conf.CheckCHeader('SDL_mixer.h')
+elif opt['fmod']:
+	check['FMOD'] = conf.CheckCHeader('fmod.h')
+check['Expat'] = conf.CheckCHeader('expat.h')
+check['Metakit'] = conf.CheckCXXHeader('mk4.h')
+if not opt['mingw32']:
+	check['GTK+ 2'] = conf.CheckCHeader('gtk/gtk.h')
+check['CURL'] = conf.CheckCHeader('curl/curl.h')
+check['Ogg Theora'] = conf.CheckCHeader('theora/theora.h')
+check['libpng'] = conf.CheckCHeader('png.h')
+check['libjpeg'] = conf.CheckJPEG()
+
+ok = True
+for i in check:
+	if not check[i]:
+		print '!!!', i, 'not found!'
+		ok = False
+if not ok:
+	print 'Missing dependencies, aborting'
+	Exit(1)
+env = conf.Finish()
+
+print 'SDLINC = ', SDLINC
+print 'GTKINC = ', GTKINC
+print 'SDLLIB = ', SDLLIB
+
+env['LIBSTDCXXA'] = shell(env['CXX'] + ' -print-file-name=libstdc++.a')
+print 'LIBSTDCXXA = ', env['LIBSTDCXXA']
+
+game = 'drod-gateb'
+if opt['release'] or opt['beta']:
+	env.Append(CCFLAGS = ' -O2 -fomit-frame-pointer', LINKSTATE = ' -Wl,-s')
+	if opt['beta']:
+		env.Append(CCFLAGS = ' -DBETA')
+	if opt['util']:
+		env.Append(CCFLAGS = ' -DDONT_RELEASE_WITH_DEBUG_INFO')
+elif opt['debug']:
+	env.Append(CCFLAGS = ' -ggdb -D_DEBUG')
+elif opt['profile']:
+	env.Append(CCFLAGS = ' -ggdb -pg')
+if opt['sdlmixer']:
+	env.Append(CCFLAGS = ' -DUSE_SDL_MIXER')
+	env['SOUNDLIB'] = '-lSDL_mixer -lvorbis -logg'
+	env['VIDEOLIB'] = '-ltheora'
+elif opt['fmod']:
+	env['SOUNDLIB'] = '-lfmod-3.75'
+	env['VIDEOLIB'] = '-ltheora -logg'
+if opt['caravel'] or opt['manifesto']:
+	makelib(env, 'CaravelNet')
+	env.Append(CCFLAGS = ' -DCARAVELBUILD')
+	if opt['manifesto']:
+		env.Append(CCFLAGS = ' -DMANIFESTO')
+
+env.Append(BUILDERS = {'CXXlink': cxxlink})
+Help(opts.GenerateHelpText(env))
+
+makelib(env, 'BackEndLib')
+makelib(env, 'FrontEndLib')
+makelib(env, 'DRODLib')
+
+if opt['util']:
+	makelib(env, 'DROD')
+	makeexe(env, 'drodutil', 'DRODUtil')
+else:
+	makeexe(env, game + '.bin', 'DROD')
