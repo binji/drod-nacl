@@ -29,6 +29,22 @@
 #include <BackEndLib/Assert.h>
 #include <BackEndLib/Types.h>
 
+#ifdef NO_THEORA
+
+bool CTheoraPlayer::playVideo(
+//Plays specified OGG Theora file to screen surface.
+//If screen == NULL, then this method will test that the file is playable
+//by decoding it as fast as possible but not displaying anything.
+//
+//Returns: whether playback was successful
+	CStretchyBuffer& buffer, SDL_Surface *screen,
+	const int x, const int y) //[default=(0,0)]
+{
+  return false;
+}
+
+#else
+
 #include <SDL.h>
 #include <theora/theora.h>
 #include <vorbis/codec.h>
@@ -548,3 +564,5 @@ bool CTheoraPlayer::playVideo(
 	//If broken out of testing, return false since entire file was not verified.
 	return !bBreakout || screen != NULL;
 }
+
+#endif  // NO_THEORA

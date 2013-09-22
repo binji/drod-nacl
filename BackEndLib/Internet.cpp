@@ -33,6 +33,7 @@
 
 using namespace std; //for VS6
 
+#ifndef NO_CURL
 bool CInternet::bInit = false;
 UINT CInternet::nHandles = 1;
 curl_httppost* CInternet::pFormPostBegin = NULL;
@@ -462,3 +463,5 @@ void CInternet::AddPostData(
 
 	delete[] pForms;
 }
+
+#endif  // NO_CURL

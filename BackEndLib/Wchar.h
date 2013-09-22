@@ -35,7 +35,7 @@
 #include "PortsBase.h"
 #include "Types.h"  //need BYTE, UINT
 
-#if defined(__linux__) || defined __FreeBSD__ || defined(__APPLE__)
+#if defined(__linux__) || defined __FreeBSD__ || defined(__APPLE__) || defined(__native_client__)
 
 #	include "CharTraits.h"
 

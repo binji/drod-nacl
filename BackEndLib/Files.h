@@ -38,19 +38,19 @@
 #  undef HAS_UNICODE
 #elif defined __APPLE__
 #  undef HAS_UNICODE
-#elif defined __linux__ || defined __FreeBSD__
+#elif defined __linux__ || defined __FreeBSD__ || defined(__native_client__)
 #  undef HAS_UNICODE
 #else
 #error Platform unknown!  Does this platform support 16-bit Unicode?
 #endif
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 #define USE_UTF8_PATHS
 #else
 #undef USE_UTF8_PATHS
 #endif
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__native_client__)
 #define USE_XDG_BASEDIR_SPEC
 #else
 #undef USE_XDG_BASEDIR_SPEC
@@ -72,7 +72,7 @@
 using std::string;
 using std::vector;
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 #include <sys/types.h>
 #endif
 
@@ -167,7 +167,7 @@ public:
 	static bool          GetDriveList(vector<WSTRING>& drives);
 	static const WCHAR * GetHomePath() {return wstrHomePath.c_str();}
 	static const WSTRING GetGameConfPath();
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 	static bool          FileCopy(const WCHAR *src, const WCHAR *dst, mode_t mode);
 	static bool          DirectoryCopy(const WSTRING& srcdir, const WSTRING& dstdir, const WCHAR *extmask = 0, bool bOverwrite = false, bool bUpdate = false);
 

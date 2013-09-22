@@ -29,7 +29,9 @@
 
 #include <BackEndLib/Assert.h>
 
+#ifndef __native_client__
 #include <memory.h>
+#endif
 
 //*****************************************************************************
 void CFade::InitFade(

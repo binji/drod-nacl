@@ -24,7 +24,9 @@
 *
 * ***** END LICENSE BLOCK ***** */
 
+#ifndef NO_CURL
 #include <curl/curl.h>  //must come first
+#endif
 #include "StretchyBuffer.h"
 #include "IDSet.h"
 
@@ -41,6 +43,9 @@ using std::string;
 class CInternet_Thread_Info
 {
 public:
+#ifdef NO_CURL
+	CInternet_Thread_Info() {}
+#else
 	CStretchyBuffer* pBuffer;
 	string strUrl;
 	SDL_Thread* pThread;
@@ -53,15 +58,27 @@ public:
 	CInternet_Thread_Info()
 		: pBuffer(NULL)
 		, pThread(NULL)
-		, eRetVal((CURLcode)-1), responseCode(0), bytesComplete(0)
+		, eRetVal((CURLcode)-1),
+		, responseCode(0)
+		, bytesComplete(0)
 		, bIgnoreResponse(false)
 	{ errorBuffer[0] = 0; }
+#endif
 };
 
 //****************************************************************************
 class CInternet
 {
 public:
+#ifdef NO_CURL
+	static int GetStatus(const UINT handle) { return 0; }
+	static CStretchyBuffer* GetResults(const UINT handle, const bool bSkipClean=false) { return NULL; }
+	static bool HttpGet(const string& strUrl, UINT* handle=NULL) { return false; }
+	static bool Init(const char* pUserAgent, const bool bSSL=false) { return true; }
+	static void Deinit() {}
+	static bool CancelRequest(const UINT handle) { return false; }
+	static UINT GetBytesCompleted(const UINT handle) { return 0; }
+#else
 	static void AddCookie(const string& strName, const string& value);
 	static void AddPostData(const string& strName, const CStretchyBuffer& value);
 	static void AddPostData(const string& strName, const string& value);
@@ -94,6 +111,7 @@ private:
 	static std::map<UINT, CInternet_Thread_Info*> threadInfo;
 	static std::vector<CInternet_Thread_Info*> ignoredThreads;
 	static CIDSet canceledHandles;
+#endif
 };
 
 #endif // INTERNET_H

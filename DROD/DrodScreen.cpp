@@ -1285,6 +1285,7 @@ void CDrodScreen::GoToBuyNow()
 	if (!OpenExtBrowser("http://www.caravelgames.com/buyGatEBFreeBSD.html"))
 #elif defined(__APPLE__)
 	if (!OpenExtBrowser("http://www.caravelgames.com/buyGatEBOSX.html"))
+#elif defined(__native_client__)
 #else
 #error Add a buy link for this platform ?
 	if (!OpenExtBrowser("http://www.caravelgames.com/buyGatEB.html"))

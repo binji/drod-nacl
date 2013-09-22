@@ -326,6 +326,8 @@ bool CClipboard::SetString(
 
 	return true;
 
+#elif defined(__native_client__)
+	return false;
 #else
 #warning How do you set system clipboard data on this system?
    return false;
@@ -402,6 +404,9 @@ bool CClipboard::GetString(
 
 	return true;
 
+#elif defined(__native_client__)
+	return false;
+
 #else
 #warning How do you get system clipboard data on this system?
    return false;
@@ -477,6 +482,9 @@ bool CClipboard::GetString(
 		UTF8ToUCS2(u8clip.c_str(), u8clip.length(), sClip);
 	return bSuccess;
 
+#elif defined(__native_client__)
+	// Do nothing.
+	return false;
 #else
 #error CClipboard::GetString -- Unicode not implemented
 #endif
@@ -533,6 +541,8 @@ bool CClipboard::SetString(
 	delete[] pbOutStr;
 	return bSuccess;
 
+#elif defined(__native_client__)
+	return false;
 #else
 #error CClipboard::SetString -- Unicode not implemented
 #endif

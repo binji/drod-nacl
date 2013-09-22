@@ -35,6 +35,10 @@
 #  include <limits.h>
 #  include <stdio.h>
 
+#  ifdef __native_client__
+#  include <string.h>  // for memset
+#  endif
+
 #  ifndef _WINDOWS_ //If <windows.h> wasn't included.
 
 #		ifndef __APPLE__
@@ -72,7 +76,7 @@ typedef unsigned long      ULONG;  //32-bit on Win/amd64, 64-bit on Linux/amd64
 
 #ifdef WIN32
 typedef unsigned __int64 ULONGLONG;
-#elif (defined __linux__) || (defined __FreeBSD__) || (defined __APPLE__)
+#elif (defined __linux__) || (defined __FreeBSD__) || (defined __APPLE__) || (defined __native_client__)
 typedef unsigned long long ULONGLONG;
 #else
 //!!FIX: for other OSs

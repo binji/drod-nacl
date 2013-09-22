@@ -6,12 +6,22 @@ MODPATH={}
 # Top source directory
 TOPSRC = '../..'
 # Module paths relative to top source dir (if not .)
-MODPATH['BackEndLib'] = '..'
-MODPATH['FrontEndLib'] = '..'
+#MODPATH['BackEndLib'] = '..'
+#MODPATH['FrontEndLib'] = '..'
 
 MINGW_PREFIX = 'i486-mingw32-'
 MINGW_BIN = '/usr/i486-mingw32/bin'
 MINGW_INC = '/usr/i486-mingw32/include'
+
+SDK_ROOT = '/home/binji/dev/chromium/src/out/pepper_31'
+SDK_TOOLCHAIN = SDK_ROOT + '/toolchain/linux_x86_newlib'
+SDK_LIB = SDK_ROOT + '/lib/newlib_x86_64/Release'
+SDK_USR_BIN = SDK_TOOLCHAIN + '/x86_64-nacl/usr/bin'
+SDK_USR_INCLUDE = SDK_TOOLCHAIN + '/x86_64-nacl/usr/include'
+SDK_USR_LIB = SDK_TOOLCHAIN + '/x86_64-nacl/usr/lib'
+CC = SDK_TOOLCHAIN + '/bin/x86_64-nacl-gcc'
+CXX = SDK_TOOLCHAIN + '/bin/x86_64-nacl-g++'
+SDL_CONFIG = SDK_USR_BIN + '/sdl-config'
 
 BUILDDIR = None
 
@@ -43,15 +53,11 @@ def makelib (base, mod):
 	env.Alias(mod, libs[mod])
 
 def makeexe (base, exe, mod):
-	env = base.Clone(LINKSTATIC = base['VIDEOLIB'],
-		LINKTAIL = base['LIBSTDCXXA'],
-		LINKDYNAMIC = '-lexpat ' + base['SOUNDLIB'] + ' -lSDL_ttf ' +
-			SDLLIB + ' -ljpeg -lcurl -lpng -lz')
-	if opt['amd64']:
-		env.Append(LINKDYNAMIC = ' -lmk4')
-	else:
-		env.Append(LINKSTATIC = ' -lmk4')
-	env.Append(LINKSTATE = ' -static-libgcc')
+	env = base.Clone(LIBS = '-L' + SDK_LIB +
+	    ' -lmk4 -lexpat ' + base['SOUNDLIB'] + ' -lSDL_ttf -lfreetype ' +
+	    SDLLIB + ' -lmikmod -lvorbisenc -lvorbisfile -lvorbis -logg ' +
+	    ' -ltar -lnacl_io -ljpeg -lpng -lz -lnosys')
+
 	makelib(env, mod)
 	llibs = libs[mod]
 	if opt['util']:
@@ -59,7 +65,8 @@ def makeexe (base, exe, mod):
 	if opt['caravel'] or opt['manifesto']:
 		llibs += libs['CaravelNet']
 	llibs += libs['DRODLib'] + libs['FrontEndLib'] + libs['BackEndLib']
-	env.CXXlink(BUILDDIR + '/bin/' + exe, llibs)
+	env.CXXlink(BUILDDIR + '/bin/' + exe + '_x86_64.nexe',
+	    [BUILDDIR + '/obj/DROD/NaClMain.o'] + llibs)
 
 def shell (cmd):
 	return os.popen(cmd).read().rstrip()
@@ -102,18 +109,23 @@ incpath = [TOPSRC]
 for i in MODPATH:
 	incpath.append(TOPSRC + '/' + MODPATH[i])
 
+SDLINC = shell(SDL_CONFIG + ' --cflags')
+SDLLIB = shell(SDL_CONFIG + ' --libs')
+
 if opt['mingw32']:
 	SDLINC = shell(MINGW_BIN + '/sdl-config --cflags')
 	GTKINC = '-DDONT_USE_GTK'
 	SDLLIB = shell(MINGW_BIN + '/sdl-config --libs')
 	incpath.append(MINGW_INC)
 else:
-	SDLINC = shell('sdl-config --cflags')
-	GTKINC = shell('pkg-config gtk+-2.0 --cflags')
-	SDLLIB = shell('sdl-config --libs')
+	SDLINC = shell(SDL_CONFIG + ' --cflags')
+	SDLLIB = shell(SDL_CONFIG + ' --libs')
 
-cxxlink = Builder(action = '$CXX $LINKSTATE -o $TARGET $SOURCES -Wl,-Bstatic $LINKSTATIC -Wl,-Bdynamic $LINKDYNAMIC $LINKTAIL')
-env = Environment(ENV = os.environ, CC = 'gcc', CXX = 'g++', CCFLAGS = SDLINC + ' ' + GTKINC + ' -W -Wall -Wno-unused -Wno-uninitialized -Werror', LINKSTATE = '-Wl,-O1 -Wl,--as-needed', CPPPATH = incpath)
+cxxlink = Builder(action = '$CXX $LINKSTATE -o $TARGET $SOURCES $LIBS')
+env = Environment(ENV = os.environ, CC = CC, CXX = CXX, CCFLAGS = SDLINC + ' -W -Wall -Wno-unused -Wno-uninitialized -Werror', LINKSTATE = '-Wl,-O1 -Wl,--as-needed', CPPPATH = incpath)
+
+env.Append(CCFLAGS = ' -I ' + SDK_USR_INCLUDE)
+env.Append(CCFLAGS = ' -DDISABLE_INTERNET -DNO_CURL -DNO_THEORA')
 
 if opt['i686']:
 	env.Append(CC = ' -m32', CXX = ' -m32', CCFLAGS = ' -march=i686')
@@ -136,12 +148,12 @@ elif opt['fmod']:
 	check['FMOD'] = conf.CheckCHeader('fmod.h')
 check['Expat'] = conf.CheckCHeader('expat.h')
 check['Metakit'] = conf.CheckCXXHeader('mk4.h')
-if not opt['mingw32']:
-	check['GTK+ 2'] = conf.CheckCHeader('gtk/gtk.h')
-check['CURL'] = conf.CheckCHeader('curl/curl.h')
-check['Ogg Theora'] = conf.CheckCHeader('theora/theora.h')
+#if not opt['mingw32']:
+#	check['GTK+ 2'] = conf.CheckCHeader('gtk/gtk.h')
+#check['CURL'] = conf.CheckCHeader('curl/curl.h')
+#check['Ogg Theora'] = conf.CheckCHeader('theora/theora.h')
 check['libpng'] = conf.CheckCHeader('png.h')
-check['libjpeg'] = conf.CheckJPEG()
+#check['libjpeg'] = conf.CheckJPEG()
 
 ok = True
 for i in check:
@@ -154,11 +166,7 @@ if not ok:
 env = conf.Finish()
 
 print 'SDLINC = ', SDLINC
-print 'GTKINC = ', GTKINC
 print 'SDLLIB = ', SDLLIB
-
-env['LIBSTDCXXA'] = shell(env['CXX'] + ' -print-file-name=libstdc++.a')
-print 'LIBSTDCXXA = ', env['LIBSTDCXXA']
 
 game = 'drod-gateb'
 if opt['release'] or opt['beta']:

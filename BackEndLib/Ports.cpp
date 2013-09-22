@@ -38,7 +38,7 @@
 
 #ifndef WIN32
 
-#if !defined __linux__ && !defined __FreeBSD__ && !defined __APPLE__
+#if !defined __linux__ && !defined __FreeBSD__ && !defined __APPLE__ && !defined __native_client__
 WCHAR * _itow(int value, WCHAR *buffer, int radix)
 {
 	if (NULL == buffer) buffer = (WCHAR*)(malloc(sizeof(WCHAR) * 33));

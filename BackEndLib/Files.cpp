@@ -52,7 +52,7 @@
 #	include <shlobj.h>
 #	pragma comment(lib,"shlwapi.lib")
 #endif
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/types.h>
@@ -113,7 +113,7 @@ static const WCHAR wszCompanyName[] = {We('C'),We('a'),We('r'),We('a'),We('v'),W
 vector<string> CFiles::datFiles;
 vector<string> CFiles::playerDataSubDirs;
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 //Constants used in default path construction/search
 #ifndef __APPLE__
 // ~/.caravel -- only used if saves already exist there
@@ -131,7 +131,7 @@ static const WCHAR wszLocalizationDir[] = {We('L'),We('1'),We('0'),We('n'),We(0)
 
 #define IOBUFFERSIZE 65536
 
-#else //#if defined __linux__ || defined __FreeBSD__ || defined __APPLE__
+#else //#if defined __linux__ || defined __FreeBSD__ || defined __APPLE__ || defined(__native_client__)
 static const WCHAR wszHomeConfDir[] =
 	{We('C'),We('a'),We('r'),We('a'),We('v'),We('e'),We('l'),We(0)};
 static const WCHAR wszOldDatDirResourceFile[] =
@@ -240,7 +240,7 @@ bool CFiles::MakeDirectory(const WCHAR *pwzPath)
 	if (ret == 0)
 		return true;
 	return errno == EEXIST;
-#elif defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 	string path;
 	UnicodeToCPath(pwzPath, path);
 
@@ -255,7 +255,7 @@ bool CFiles::MakeDirectory(const WCHAR *pwzPath)
 //******************************************************************************
 //Code for determining the "HOME" path we should use for the user's app data
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 //******************************************************************************
 #define UWP_BUFFER 256
 #define UWP_BUFPAD 256
@@ -364,7 +364,7 @@ static bool GetNormalizedPathEnv (
 	return GetNormalizedPath(getenv(env), wstr);
 }
 
-// endif defined __linux__ || defined __FreeBSD__ || defined __APPLE__
+// endif defined __linux__ || defined __FreeBSD__ || defined __APPLE__ || defined(__native_client__)
 #else
 
 WSTRING GetUserspacePath()
@@ -400,7 +400,7 @@ void CFiles::TryToFindDataPath()
 {
 	WSTRING wstrDatPathTxt;
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 
 	CFiles::wszDatPath = GetGameConfPath();
 	CFiles::wszResPath = CFiles::GetAppPath() + wszSlash + wszData;
@@ -475,7 +475,7 @@ bool CFiles::EraseFile(
 //UTF-8/ASCII version.
 bool CFiles::EraseFile(const char *szFilepath)
 {
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 	return !unlink(szFilepath);
 #else
 	return !_unlink(szFilepath);
@@ -568,7 +568,7 @@ bool CFiles::MakeFileWritable(
 //Returns:
 //True if the attempt was successful, false otherwise
 {
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 	string sFile;
 	UnicodeToCPath(wszFilepath, sFile);
 	return !chmod(sFile.c_str(), 0644) && HasReadWriteAccess(wszFilepath);
@@ -1038,7 +1038,7 @@ void CFiles::InitClass(
 
 void CFiles::SetupHomePath()
 {
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 
 	if (!GetNormalizedPathEnv("HOME", CFiles::wstrHomePath))
 		CFiles::wstrHomePath = wszTempPath;
@@ -1102,7 +1102,7 @@ void CFiles::SetupHomePathSubDirs()
 			CreatePathIfInvalid(subdirpath.c_str());
 			if (firstch == '+')
 			{
-#if defined(__linux__) || defined (__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined (__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 				DirectoryCopy(CFiles::GetResPath() + wszSlash + subdir, subdirpath, 0, true, true);
 #else
 				ASSERT(!"Directory copy requested but not implemented for this platform");
@@ -1140,7 +1140,7 @@ void CFiles::GetDatPathFromDataPathDotTxt()
 		}
 		fclose( pFile );
 	} else {
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 		TryToFindDataPath();
 #endif
 	}
@@ -1277,7 +1277,7 @@ bool CFiles::FindDataPathDotTxt(
 }
 
 //******************************************************************************
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 //******************************************************************************
 bool CFiles::FileCopy(
 //Copies the source file to the destination file.
@@ -1295,7 +1295,11 @@ bool CFiles::FileCopy(
 	UnicodeToCPath(target, dst);
 
 	int sf, tf;
+#if defined(__native_client__)
+	if ((sf = open(src.c_str(), O_RDONLY)) < 0)
+#else
 	if ((sf = open(src.c_str(), O_RDONLY)) < 0 || (tf = creat(dst.c_str(), mode)) < 0)
+#endif
 	{
 		if (sf >= 0) close(sf);
 		return false;
@@ -1416,7 +1420,7 @@ bool CFiles::GetLocalizationFiles(vector<WSTRING>& files)
 }
 
 //******************************************************************************
-// ifdef __linux__ || defined __FreeBSD__ || defined __APPLE__
+// ifdef __linux__ || defined __FreeBSD__ || defined __APPLE__ || defined(__native_client__)
 #else
 //******************************************************************************
 bool CFiles::FindPossibleDatPath(
@@ -1549,7 +1553,7 @@ bool CFiles::WriteDataPathTxt(
 
 	FILE* pFile = Open(pwszFilepath, "w");
 	if (NULL == pFile) {
-#if defined __linux__ || defined __FreeBSD__ || defined __APPLE__
+#if defined __linux__ || defined __FreeBSD__ || defined __APPLE__ || defined(__native_client__)
 		//Try making the file writable if it exists and is read-only
 		string strFilepath;
 		UnicodeToCPath(pwszFilepath, strFilepath);
@@ -1955,7 +1959,7 @@ bool CFiles::GetDriveList(
 	}
 
 	return true;
-#elif defined (__linux__) || defined (__FreeBSD__)
+#elif defined (__linux__) || defined (__FreeBSD__) || defined(__native_client__)
 	//Add the game dat directory and the home directory first.
 	drives.clear();
 	static const WCHAR wszLeft[] = {{'['},{' '},{0}}, wszRight[] = {{' '},{']'},{0}};

@@ -33,7 +33,7 @@
 #  include <sys/time.h>
 #endif
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 #  include <sys/time.h>
 #endif
 
@@ -48,7 +48,7 @@ UINT GetTicks()
 	return GetTickCount();
 #elif defined(__sgi)
 	return 0;
-#elif defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__)
+#elif defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__) || defined(__native_client__)
 	struct timeval tv;
 	gettimeofday (&tv, NULL);
 	return tv.tv_sec * 1000 + tv.tv_usec / 1000;

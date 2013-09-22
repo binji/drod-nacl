@@ -162,6 +162,9 @@ void CScreen::GetHighestScreenRes(UINT& wX, UINT& wY) const
 	SDL_Rect **modes=SDL_ListModes(NULL, SDL_FULLSCREEN);
 	if (modes)	//In some cases, full screen modes are not available
 	{
+		if (modes == reinterpret_cast<SDL_Rect**>(-1))
+			return;
+
 		for (int i=0; modes[i]; ++i)
 		{
 			if (modes[i]->w > wX)
@@ -475,6 +478,9 @@ void CScreen::GetScreenSize(int &nW, int &nH)
    nW = desktopRect.right - desktopRect.left;
    nH = desktopRect.bottom - desktopRect.top;
 
+#elif defined(__native_client__)
+   nW = nH = 0;  //Prevent usage of uninitialized vars
+
 #else
 #  warning Need to implement CScreen::GetScreenSize for this system
    nW = nH = 0;  //Prevent usage of uninitialized vars
@@ -532,6 +538,10 @@ bool CScreen::GetWindowPos(int &nX, int &nY)
    }
    return false;
 
+#elif defined(__native_client__)
+	nX = 0; nY = 0; //Prevent usage of uninitialized variables
+	return false;
+
 #else
 #	warning Need to implement CScreen::GetWindowPos for this system
 	nX = 0; nY = 0; //Prevent usage of uninitialized variables
@@ -583,6 +593,8 @@ void CScreen::SetWindowCentered()
    y = (desktopHeight - h) / 2;
 
    ::MoveWindow(info.window, x, y, w, h, true);
+#elif defined(__native_client__)
+   // Do nothing.
 #else
 #	warning Need to implement CScreen::SetWindowCentered for this system
 #endif
@@ -619,6 +631,9 @@ void CScreen::SetWindowPos(const int nSetX, const int nSetY)
    const int h = windowRect.bottom - windowRect.top;
 
    ::MoveWindow(info.window, nSetX, nSetY, w, h, true);
+
+#elif defined(__native_client__)
+   // Do nothing.
 
 #else
 #	warning Need to implement CScreen::SetWindowPos for this system

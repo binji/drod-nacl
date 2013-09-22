@@ -54,7 +54,7 @@ using std::abs;
 #include "Types.h"
 #include "Wchar.h"
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 #  include <ctype.h>
 // strcasecmp is a BSD 4.4 function, and some systems might actually have
 // stricmp. Should check for both and use a custom version if none exist

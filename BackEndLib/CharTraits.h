@@ -81,7 +81,7 @@ static inline WCHAR toWCHAR(wchar_t code) { return std::char_traits<WCHAR>::to_c
 #define WCv(x)  ((x).value)
 #define pWCv(x) ((x)->value)
 #define W_t(x)  ((WCHAR){x})
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__native_client__)
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define We(x)   {x}
 #else

@@ -158,7 +158,11 @@ static bool         IsAppAlreadyRunning();
 static void         RepairMissingINIKeys(const bool bFullVersion);
 
 //*****************************************************************************
+#if defined(__native_client__)
+int drod_main(int argc, char *argv[])
+#else
 int main(int argc, char *argv[])
+#endif
 {
 	LOGCONTEXT("main");
 
@@ -741,7 +745,7 @@ MESSAGE_ID InitGraphics()
 #	endif
 #endif
 
-#ifndef __linux__
+#if !(defined(__linux__) || defined(__native_client__))
 	//Ensure screensaver remains enabled on OS X (SDL 1.2.12+).
 	SDL_putenv("SDL_VIDEO_ALLOW_SCREENSAVER=1");
 #endif
@@ -1244,6 +1248,8 @@ void DisplayInitErrorMessage(
 	}
 	if (!bSuccess)
 		fprintf(stderr, "%s: %s\n", strTitle.c_str(), u8msg);
+#elif defined(__native_client__)
+
 #else
 #warning Message display code is not provided (GTK not enabled). Using the console.
 	fprintf(stderr, "%s: %s\n", strTitle.c_str(), u8msg);
@@ -1442,6 +1448,8 @@ bool IsAppAlreadyRunning()
 	unlink(tmplockfile);
 	atexit(DeleteLockFile);
 	return false;
+#elif defined(__native_client__)
+	return false;
 #else
 #  error Disallow running more than one instance of the app at a time.
 #endif
@@ -1533,6 +1541,9 @@ MESSAGE_ID CheckAvailableMemory()
    // Depending on which shared libraries are used, this can be anything from 4Mb
    // up to 7Mb on FreeBSD, so assume the worst case - Jamie
    const UINT MEM_USED_BEFORE_INIT = 7340032; // 7Mb
+#elif defined(__native_client__)
+   const UINT MEM_USED_BEFORE_INIT = 0; // Doesn't matter.
+
 #else
 #  error Define MEM_USED_BEFORE_INIT for this platform.
 #endif
@@ -1552,6 +1563,8 @@ MESSAGE_ID CheckAvailableMemory()
    // Whilst on FreeBSD this figure is typically around 65Mb whilst playing the
    // game.
    const UINT MEM_USED_FULLY_LOADED = 75000000; // 75Mb
+#elif defined(__native_client__)
+   const UINT MEM_USED_FULLY_LOADED = 0; // Doesn't matter.
 #else
 #  error Define MEM_USED_FULLY_LOADED for this platform.
 #endif
@@ -1708,10 +1721,12 @@ MESSAGE_ID CheckAvailableMemory()
 #else
 	fprintf(stderr, "Warning: Can't get memory information, assuming it's ok.\n");
 #endif
+#elif defined(__native_client__)
 #else
 #   error Need code to get available virtual and physical memory for this platform.
 #endif
 
+#if !defined(__native_client__)
 	//Is there enough memory left to run DROD?
 	if (qwAvailableTotal < MEM_STILL_NEEDED) //No.
 		return MID_MemLowExitNeeded;
@@ -1725,6 +1740,7 @@ MESSAGE_ID CheckAvailableMemory()
 	//But will it run fast?
 	if (qwAvailablePhysical < MEM_STILL_NEEDED + MEM_COMFORT_PAD) //Probably not.
 		return MID_MemPerformanceWarning;
+#endif
 
 	//Probably.
 	return MID_Success;

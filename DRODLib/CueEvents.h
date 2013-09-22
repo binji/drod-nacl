@@ -125,7 +125,9 @@
 #include <BackEndLib/Assert.h>
 #include <BackEndLib/Types.h>
 
+#ifndef __native_client__
 #include <memory.h>
+#endif
 #include <vector>
 using std::vector;
 

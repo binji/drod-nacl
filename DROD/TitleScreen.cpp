@@ -681,7 +681,11 @@ bool CTitleScreen::PollForNews()
 		pInternetIcon->SetImage(wszSignalNo);
 
 		//Check for special problems.
+#ifdef NO_CURL
+		if (nStatus == 0)
+#else
 		if (nStatus == CURLE_OPERATION_TIMEDOUT)
+#endif
 		{
 			//Not connecting.  Maybe no Internet connection or server is down?
 
