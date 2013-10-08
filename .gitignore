@@ -1,0 +1,6 @@
+/.ninja_deps
+/.ninja_log
+/build.ninja
+/build/data/
+/out/
+*.pyc

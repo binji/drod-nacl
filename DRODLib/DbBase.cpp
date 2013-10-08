@@ -41,11 +41,114 @@
 #include <BackEndLib/Wchar.h>
 
 #include <fstream>
+#include <string>
 
 #if !defined PATCH && !defined RUSSIAN_BUILD
 //Uncomment this to build a patch executable.
 #	define PATCH
 #endif
+
+class c4_FileBufferStrategy : public c4_Strategy {
+ public:
+  c4_FileBufferStrategy(FILE* file = 0): _file(file), _cleanup(0) {}
+  ~c4_FileBufferStrategy() {
+    _file = 0;
+    if (_cleanup)
+      fclose(_cleanup);
+  }
+
+  virtual bool IsValid()const {
+    return _file != 0;
+  }
+
+  bool DataOpen(const char *fname_, int mode_) {
+    printf("Opening file(%s)\n", fname_);
+    _filename = fname_;
+    _cleanup = _file = fopen(fname_, mode_ > 0 ? "r+b" : "rb");
+
+    if (_file != 0) {
+      setvbuf(_file, NULL, _IOFBF, 1024 * 1024);
+      ResetFileMapping();
+      return true;
+    }
+
+    if (mode_ > 0) {
+      _cleanup = _file = fopen(fname_, "w+b");
+      if (_file != 0) {
+        setvbuf(_file, NULL, _IOFBF, 1024 * 1024);
+      }
+    }
+    return false;
+  }
+
+  virtual int DataRead(t4_i32 pos_, void *buf_, int len_) {
+    return fseek(_file, _baseOffset + pos_, 0) != 0
+        ?  -1
+        : (int)fread(buf_, 1, len_, _file);
+  }
+
+  virtual void DataWrite(t4_i32 pos_, const void *buf_, int len_) {
+    //printf("DataWrite(%s, %08x, %d)\n", _filename.c_str(), pos_, len_);
+    long pos = ftell(_file);
+    long new_pos = _baseOffset + pos_;
+    if (pos != new_pos) {
+      printf("DataWrite: Seeking %08x != %08x.\n", pos, new_pos);
+      if (fseek(_file, new_pos, 0) != 0) {
+        _failure = ferror(_file);
+        return;
+      }
+    }
+
+    if ((int)fwrite(buf_, 1, len_, _file) != len_) {
+      _failure = ferror(_file);
+    }
+  }
+
+  virtual void DataCommit(t4_i32 limit_) {
+    printf("DataCommit(%s)\n", _filename.c_str());
+    if (fflush(_file) < 0) {
+      _failure = ferror(_file);
+      return;
+    }
+  }
+
+  virtual void ResetFileMapping() {
+    _mapStart = 0;
+  }
+
+  virtual t4_i32 FileSize() {
+    long size =  - 1;
+
+    long old = ftell(_file);
+    if (old >= 0 && fseek(_file, 0, 2) == 0) {
+      long pos = ftell(_file);
+      if (fseek(_file, old, 0) == 0)
+        size = pos;
+    }
+
+    if (size < 0)
+      _failure = ferror(_file);
+
+    return size;
+  }
+
+  virtual t4_i32 FreshGeneration() {
+    return 0;
+  }
+
+ private:
+  FILE* _file;
+  FILE* _cleanup;
+  std::string _filename;
+};
+
+c4_Storage* MakeStorage(const char* filename, int mode) {
+  c4_FileBufferStrategy* strat = new c4_FileBufferStrategy;
+  if (!strat->DataOpen(filename, mode))
+    return NULL;
+
+  return new c4_Storage(*strat, true, mode);
+}
 
 //One for each data file.
 bool CDbBase::bDirtyData = false;
@@ -465,7 +568,7 @@ MESSAGE_ID CDbBase::Open(
 		//!!For now, we'll ignore the WCHAR filenames and open the DB the fast and memory efficient way.
 		char filename[FILENAME_MAX];
 		UnicodeToAscii(wstrMainDatPath.c_str(), filename);
-		m_pMainStorage = new c4_Storage(filename,
+		m_pMainStorage = MakeStorage(filename,
 #ifdef DEV_BUILD
 		1 //save explicitly to this file
 #else
@@ -475,15 +578,15 @@ MESSAGE_ID CDbBase::Open(
 #endif
 		);
 		UnicodeToAscii(wstrDataDatPath.c_str(), filename);
-		m_pDataStorage = new c4_Storage(filename, 1);
+		m_pDataStorage = MakeStorage(filename, 1);
 		UnicodeToAscii(wstrHoldDatPath.c_str(), filename);
-		m_pHoldStorage = new c4_Storage(filename, 1);
+		m_pHoldStorage = MakeStorage(filename, 1);
 		UnicodeToAscii(wstrPlayerDatPath.c_str(), filename);
-		m_pPlayerStorage = new c4_Storage(filename, 1);
+		m_pPlayerStorage = MakeStorage(filename, 1);
 		UnicodeToAscii(wstrSaveDatPath.c_str(), filename);
-		m_pSaveStorage = new c4_Storage(filename, 1);
+		m_pSaveStorage = MakeStorage(filename, 1);
 		UnicodeToAscii(wstrTextDatPath.c_str(), filename);
-		m_pTextStorage = new c4_Storage(filename, 1);
+		m_pTextStorage = MakeStorage(filename, 1);
 		if (!m_pMainStorage || !m_pDataStorage || !m_pHoldStorage ||
 				!m_pPlayerStorage || !m_pSaveStorage || !m_pTextStorage)
 			throw MID_CouldNotOpenDB;

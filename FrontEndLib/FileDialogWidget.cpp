@@ -408,7 +408,7 @@ void CFileDialogWidget::GoToDirectory()
 #endif
 		else
 			this->dirpath.resize(nSlashLoc);
-#if defined(WIN32) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(WIN32) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(__native_client__)
 	} else if (wstrDirname[0] == W_t('[')) {
 		//Switch drives.
 		WSTRING newDrive = wstrDirname.c_str() + 2;

@@ -1,0 +1,395 @@
+# vim: set syntax=python
+
+ARCHES=('x86_32', 'x86_64', 'arm')
+CONFIGS=('debug', 'release')
+arch_config={'arch': ARCHES, 'config': CONFIGS}
+debug_keys = {'config': 'debug'}
+release_keys = {'config': 'release'}
+
+Variable('nacl_sdk_root', Args['nacl_sdk_root'])
+Variable('toolchain_dir', '$nacl_sdk_root/toolchain')
+Variable('toolchain_dir_x86', '$toolchain_dir/%s_x86_newlib' % Args['platform'])
+Variable('toolchain_dir_arm', '$toolchain_dir/%s_arm_newlib' % Args['platform'])
+Variable('usr_include_dir-x86_32', '$toolchain_dir_x86/i686-nacl/usr/include')
+Variable('usr_include_dir-x86_64', '$toolchain_dir_x86/x86_64-nacl/usr/include')
+Variable('usr_include_dir-arm', '$toolchain_dir_arm/arm-nacl/usr/include')
+Variable('ar-arm', '$toolchain_dir_arm/bin/arm-nacl-ar')
+Variable('ar-x86_32', '$toolchain_dir_x86/bin/i686-nacl-ar')
+Variable('ar-x86_64', '$toolchain_dir_x86/bin/x86_64-nacl-ar')
+Variable('cc-arm', '$toolchain_dir_arm/bin/arm-nacl-gcc')
+Variable('cc-x86_32', '$toolchain_dir_x86/bin/i686-nacl-gcc')
+Variable('cc-x86_64', '$toolchain_dir_x86/bin/x86_64-nacl-gcc')
+Variable('cxx-arm', '$toolchain_dir_arm/bin/arm-nacl-g++')
+Variable('cxx-x86_32', '$toolchain_dir_x86/bin/i686-nacl-g++')
+Variable('cxx-x86_64', '$toolchain_dir_x86/bin/x86_64-nacl-g++')
+Variable('strip-arm', '$toolchain_dir_arm/bin/arm-nacl-strip')
+Variable('strip-x86_32', '$toolchain_dir_x86/bin/i686-nacl-strip')
+Variable('strip-x86_64', '$toolchain_dir_x86/bin/x86_64-nacl-strip')
+Variable('nmf', '$nacl_sdk_root/tools/create_nmf.py')
+
+Rule('cp', 'cp $in $out', 'COPY $out')
+Rule('cc', '$cc $ccflags -MMD -MF $out.d -c $in -o $out', 'CC $out',
+     depfile='$out.d')
+Rule('ar', '$ar rc $out $in', 'AR $out')
+Rule('link', '$cc $in $ldflags -o $out', 'LINK $out')
+Rule('nmf', '$nmf $in -o $out', 'NMF $out')
+Rule('zip', 'rm -f $out && zip -9 $out -j $in', 'ZIP $out')
+Rule('strip', '$strip $in -o $out', 'STRIP $out')
+
+sources = Build('out/{arch}/{config}/{inf:-ext}.o', 'cc', '{inf}') \
+    .Tag('{name}-sources')
+#lib = Build('out/{arch}/{config}/lib{name}.a', 'ar').Tag('{name}-lib')
+exe = Build('out/{name}_{arch}_{config}.nexe', 'link').Tag('{name}-exe')
+nmf = Build('out/{name}_{config}.nmf', 'nmf').Tag('{name}-nmf')
+data = Build('out/{inf}', 'cp', 'build/data/{inf}').Tag('{name}-data')
+
+SOURCES = [
+  "BackEndLib/Assert.cpp",
+  "BackEndLib/AttachableObject.cpp",
+  "BackEndLib/Base64.cpp",
+  "BackEndLib/Browser.cpp",
+  "BackEndLib/Clipboard.cpp",
+  "BackEndLib/Date.cpp",
+  "BackEndLib/Dyn.cpp",
+  "BackEndLib/Files.cpp",
+  "BackEndLib/GameStream.cpp",
+  "BackEndLib/Heap.cpp",
+  "BackEndLib/IDList.cpp",
+  "BackEndLib/IniFile.cpp",
+  "BackEndLib/Internet.cpp",
+  "BackEndLib/MessageIDs.cpp",
+  "BackEndLib/Metadata.cpp",
+  "BackEndLib/Ports.cpp",
+  "BackEndLib/StretchyBuffer.cpp",
+  "BackEndLib/SysTimer.cpp",
+  "BackEndLib/Wchar.cpp",
+  "FrontEndLib/AnimatedTileEffect.cpp",
+  "FrontEndLib/BitmapManager.cpp",
+  "FrontEndLib/Bolt.cpp",
+  "FrontEndLib/BumpObstacleEffect.cpp",
+  "FrontEndLib/ButtonWidget.cpp",
+  "FrontEndLib/Colors.cpp",
+  "FrontEndLib/DialogWidget.cpp",
+  "FrontEndLib/Effect.cpp",
+  "FrontEndLib/EffectList.cpp",
+  "FrontEndLib/EventHandlerWidget.cpp",
+  "FrontEndLib/ExpandingTextEffect.cpp",
+  "FrontEndLib/Fade.cpp",
+  "FrontEndLib/FadeTileEffect.cpp",
+  "FrontEndLib/FileDialogWidget.cpp",
+  "FrontEndLib/FlashMessageEffect.cpp",
+  "FrontEndLib/FlashShadeEffect.cpp",
+  "FrontEndLib/FloatEffect.cpp",
+  "FrontEndLib/FloatTextEffect.cpp",
+  "FrontEndLib/FocusWidget.cpp",
+  "FrontEndLib/FontManager.cpp",
+  "FrontEndLib/FrameRateEffect.cpp",
+  "FrontEndLib/FrameWidget.cpp",
+  "FrontEndLib/HTMLWidget.cpp",
+  "FrontEndLib/HyperLinkWidget.cpp",
+  "FrontEndLib/ImageWidget.cpp",
+  "FrontEndLib/Inset.cpp",
+  "FrontEndLib/JpegHandler.cpp",
+  "FrontEndLib/KeypressDialogWidget.cpp",
+  "FrontEndLib/LabelWidget.cpp",
+  "FrontEndLib/ListBoxWidget.cpp",
+  "FrontEndLib/MarqueeWidget.cpp",
+  "FrontEndLib/MenuWidget.cpp",
+  "FrontEndLib/MovingTileEffect.cpp",
+  "FrontEndLib/ObjectMenuWidget.cpp",
+  "FrontEndLib/OptionButtonWidget.cpp",
+  "FrontEndLib/Outline.cpp",
+  "FrontEndLib/Pan.cpp",
+  "FrontEndLib/PNGHandler.cpp",
+  "FrontEndLib/ProgressBarWidget.cpp",
+  "FrontEndLib/RotateTileEffect.cpp",
+  "FrontEndLib/ScalerWidget.cpp",
+  "FrontEndLib/ScaleTileEffect.cpp",
+  "FrontEndLib/Screen.cpp",
+  "FrontEndLib/ScreenManager.cpp",
+  "FrontEndLib/ScrollableWidget.cpp",
+  "FrontEndLib/ScrollingTextWidget.cpp",
+  "FrontEndLib/ShadeEffect.cpp",
+  "FrontEndLib/SliderWidget.cpp",
+  "FrontEndLib/Sound.cpp",
+  "FrontEndLib/SubtitleEffect.cpp",
+  "FrontEndLib/TabbedMenuWidget.cpp",
+  "FrontEndLib/TextBox2DWidget.cpp",
+  "FrontEndLib/TextBoxWidget.cpp",
+  "FrontEndLib/TextEffect.cpp",
+  "FrontEndLib/TheoraPlayer.cpp",
+  "FrontEndLib/TilesWidget.cpp",
+  "FrontEndLib/ToolTipEffect.cpp",
+  "FrontEndLib/TransTileEffect.cpp",
+  "FrontEndLib/Widget.cpp",
+  "DRODLib/Ant.cpp",
+  "DRODLib/AntHill.cpp",
+  "DRODLib/BlueSerpent.cpp",
+  "DRODLib/Brain.cpp",
+  "DRODLib/Briar.cpp",
+  "DRODLib/Bridge.cpp",
+  "DRODLib/Building.cpp",
+  "DRODLib/Character.cpp",
+  "DRODLib/Citizen.cpp",
+  "DRODLib/Clone.cpp",
+  "DRODLib/CueEvents.cpp",
+  "DRODLib/CurrentGame.cpp",
+  "DRODLib/DbBase.cpp",
+  "DRODLib/DbCommands.cpp",
+  "DRODLib/Db.cpp",
+  "DRODLib/DbData.cpp",
+  "DRODLib/DbDemos.cpp",
+  "DRODLib/DbHolds.cpp",
+  "DRODLib/DbLevels.cpp",
+  "DRODLib/DbMessageText.cpp",
+  "DRODLib/DbPackedVars.cpp",
+  "DRODLib/DbPlayers.cpp",
+  "DRODLib/DbRefs.cpp",
+  "DRODLib/DbRooms.cpp",
+  "DRODLib/DbSavedGames.cpp",
+  "DRODLib/DbSpeech.cpp",
+  "DRODLib/DbXML.cpp",
+  "DRODLib/Decoy.cpp",
+  "DRODLib/EvilEye.cpp",
+  "DRODLib/GameConstants.cpp",
+  "DRODLib/Ghost.cpp",
+  "DRODLib/Goblin.cpp",
+  "DRODLib/GreenSerpent.cpp",
+  "DRODLib/Guard.cpp",
+  "DRODLib/Halph.cpp",
+  "DRODLib/ImportInfo.cpp",
+  "DRODLib/Mimic.cpp",
+  "DRODLib/Monster.cpp",
+  "DRODLib/MonsterFactory.cpp",
+  "DRODLib/MonsterMessage.cpp",
+  "DRODLib/MonsterPiece.cpp",
+  "DRODLib/Neather.cpp",
+  "DRODLib/NetInterface.cpp",
+  "DRODLib/PathMap.cpp",
+  "DRODLib/PhoenixAshes.cpp",
+  "DRODLib/Phoenix.cpp",
+  "DRODLib/Platform.cpp",
+  "DRODLib/PlayerDouble.cpp",
+  "DRODLib/PlayerStats.cpp",
+  "DRODLib/RedSerpent.cpp",
+  "DRODLib/Roach.cpp",
+  "DRODLib/RoachEgg.cpp",
+  "DRODLib/RoachQueen.cpp",
+  "DRODLib/RockGiant.cpp",
+  "DRODLib/Serpent.cpp",
+  "DRODLib/Slayer.cpp",
+  "DRODLib/Spider.cpp",
+  "DRODLib/Splitter.cpp",
+  "DRODLib/Stalwart.cpp",
+  "DRODLib/Station.cpp",
+  "DRODLib/Swordsman.cpp",
+  "DRODLib/TarBaby.cpp",
+  "DRODLib/TarMother.cpp",
+  "DRODLib/WraithWing.cpp",
+  "DRODLib/Wubba.cpp",
+  "DRODLib/Zombie.cpp",
+  "DROD/BloodEffect.cpp",
+  "DROD/BoundingBox.cpp",
+  "DROD/BrowserScreen.cpp",
+  "DROD/CharacterDialogWidget.cpp",
+  "DROD/Chat.cpp",
+  "DROD/ChatScreen.cpp",
+  "DROD/CheckpointEffect.cpp",
+  "DROD/ClockWidget.cpp",
+  "DROD/Color.cpp",
+  "DROD/CreditsScreen.cpp",
+  "DROD/DebrisEffect.cpp",
+  "DROD/DemoScreen.cpp",
+  "DROD/DemosScreen.cpp",
+  "DROD/DrodBitmapManager.cpp",
+  "DROD/DrodFileDialogWidget.cpp",
+  "DROD/DrodFontManager.cpp",
+  "DROD/DrodScreen.cpp",
+  "DROD/DrodScreenManager.cpp",
+  "DROD/DrodSound.cpp",
+  "DROD/EditRoomScreen.cpp",
+  "DROD/EditRoomWidget.cpp",
+  "DROD/EditSelectScreen.cpp",
+  "DROD/EntranceSelectDialogWidget.cpp",
+  "DROD/EvilEyeGazeEffect.cpp",
+  "DROD/ExplosionEffect.cpp",
+  "DROD/FaceWidget.cpp",
+  "DROD/GameScreen.cpp",
+  "DROD/HoldSelectScreen.cpp",
+  "DROD/LevelStartScreen.cpp",
+  "DROD/Light.cpp",
+  "DROD/Main.cpp",
+  "DROD/MapWidget.cpp",
+  "DROD/ModScreen.cpp",
+  "DROD/NaClMain.cpp",
+  "DROD/NewPlayerScreen.cpp",
+  "DROD/ParticleExplosionEffect.cpp",
+  "DROD/PendingBuildEffect.cpp",
+  "DROD/PendingPlotEffect.cpp",
+  "DROD/Point.cpp",
+  "DROD/RaindropEffect.cpp",
+  "DROD/Rectangle.cpp",
+  "DROD/RestoreScreen.cpp",
+  "DROD/RoomEffectList.cpp",
+  "DROD/RoomScreen.cpp",
+  "DROD/RoomWidget.cpp",
+  "DROD/Scene.cpp",
+  "DROD/SelectPlayerScreen.cpp",
+  "DROD/SellScreen.cpp",
+  "DROD/SettingsScreen.cpp",
+  "DROD/SnowflakeEffect.cpp",
+  "DROD/SparkEffect.cpp",
+  "DROD/Sphere.cpp",
+  "DROD/SplashEffect.cpp",
+  "DROD/SteamEffect.cpp",
+  "DROD/StrikeOrbEffect.cpp",
+  "DROD/SwordsmanSwirlEffect.cpp",
+  "DROD/SwordSwingEffect.cpp",
+  "DROD/TarStabEffect.cpp",
+  "DROD/TileImageCalcs.cpp",
+  "DROD/TitleScreen.cpp",
+  "DROD/TrapdoorFallEffect.cpp",
+  "DROD/VarMonitorEffect.cpp",
+  "DROD/VerminEffect.cpp",
+  "DROD/WadeEffect.cpp",
+  "DROD/WeatherDialogWidget.cpp",
+  "DROD/WinStartScreen.cpp",
+  "DROD/ZombieGazeEffect.cpp",
+]
+
+INCLUDE_DIRS = [
+  '.',
+  '$nacl_sdk_root/include',
+  '$usr_include_dir-{arch}',
+  '$usr_include_dir-{arch}/SDL'
+]
+
+DEFINES = [
+  'USE_SDL_MIXER',
+  'DISABLE_INTERNET',
+  'NO_CURL',
+  'NO_THEORA',
+]
+
+LIB_DIRS = [
+  '$nacl_sdk_root/lib/newlib_{arch}/Debug',
+]
+
+LIBS = [
+  'mk4',
+  'expat',
+  'SDL_mixer',
+  'SDL_ttf',
+  'freetype',
+  'SDL',
+  'Regal',
+  'mikmod',
+  'vorbisenc',
+  'vorbisfile',
+  'vorbis',
+  'ogg',
+  'tar',
+  'jpeg',
+  'png',
+  'z',
+  'ppapi_gles2',
+  'ppapi_cpp',
+  'SDLmain',
+  'nacl_io',
+  'ppapi',
+  'nosys',
+]
+
+for b in sources.ForEach(name='drod', inf=SOURCES, **arch_config):
+  b.Set('ccflags', Prefix('-I', INCLUDE_DIRS))
+  b.Append('ccflags', Prefix('-D', DEFINES))
+  b.Append('ccflags', '-Wall -Wno-switch -Wno-unused-variable')
+
+for b in exe.ForEach(name='drod', **arch_config):
+  subkeys = b.SubKeys('arch', 'config')
+  b.Set('ldflags', Prefix('-L', LIB_DIRS))
+  b.Set('ldflags', Prefix('-l', LIBS))
+  b.Set('inputs',
+        Select('drod-sources').And(keys=subkeys).outputs)
+
+for b in nmf.ForEach(name='drod', config=CONFIGS):
+  b.Append('inputs',
+    Select('drod-exe').And(keys=b.SubKeys('config')).outputs)
+
+
+#
+# Data files
+#
+DATA_FILES = [
+  'background.js',
+  'drod.html',
+  'drod_usr.tar',
+  'icon128.png',
+  'icon16.png',
+  'icon48.png',
+  'main.js',
+]
+
+for b in data.ForEach(name='drod', inf=DATA_FILES):
+  pass
+
+#
+# Manifest files
+#
+Rule('manifest',
+     'build/script/generate_manifest.py -o $out -c $config -t $in $resources $key',
+     'MANIFEST $out',
+     implicit='build/script/generate_manifest.py')
+
+def GenerateManifest(out, config, with_key=True):
+  config_keys = {'config': config}
+  resources = Select('drod-exe').And(keys=config_keys).outputs
+  resources += Select('drod-nmf').And(keys=config_keys).outputs
+  resources = [Filename(n).Base for n in resources]
+  key = '-k' if with_key else ''
+
+  return Build(out, 'manifest', 'build/data/manifest.json.template',
+               config=config, resources=resources, key=key)
+
+GenerateManifest('out/manifest.json', 'debug')
+GenerateManifest('out/package/manifest.json', 'release')
+GenerateManifest('out/package-release/manifest.json', 'release',
+                 with_key=False).Tag('package')
+
+
+# Copy data files to packagedir
+for b in Select('drod-data'):
+  n = Build('out/package/' + Filename(b.outputs).base, 'cp', b.outputs)
+  n.Tag('package')
+
+# Copy .nexes to packagedir, stripped.
+for b in Select('drod-exe', 'test-exe').And(keys=release_keys):
+  n = Build('out/package/' + Filename(b.outputs).Base, 'strip', b.outputs)
+  n.Set('strip', '$strip-' + b.keys['arch'])
+  n.Tag('package')
+
+# Copy .nmfs to packagedir
+for b in Select('drod-nmf', 'test-nmf').And(keys=release_keys):
+  n = Build('out/package/' + Filename(b.outputs).Base, 'cp', b.outputs)
+  n.Tag('package')
+
+# Zip files in package
+Build('out/package.zip', 'zip', Select('package').outputs)
+
+
+################################################################################
+
+for b in Select(keys=debug_keys).And(rule='cc'):
+  b.Append('ccflags', '-g -O0')
+for b in Select(keys=release_keys).And(rule='cc'):
+  b.Append('ccflags', '-g -O3')
+for b in Select(rule='cc'):
+  ext = Filename(b.inputs).Extension
+  if ext in ('.cc', '.cpp'):
+    b.Set('cc', '$cxx-{arch}')
+  elif ext == '.c':
+    b.Set('cc', '$cc-{arch}')
+for b in Select(rule='link'):
+  b.Set('cc', '$cxx-{arch}')
+for b in Select(rule='ar'):
+  b.Set('ar', '$ar-{arch}')

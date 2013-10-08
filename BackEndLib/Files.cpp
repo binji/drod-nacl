@@ -535,7 +535,12 @@ FILE * CFiles::Open(
 	 {
 		string strPath;
 		UnicodeToCPath(pwzFilepath, strPath);
+                //printf("CFiles::Open(%s)\n", strPath.c_str());
 		pFile = fopen(strPath.c_str(), pszOptions);
+#ifdef __native_client__
+		if (pFile)
+			setvbuf(pFile, NULL, _IOFBF, 1024*1024);
+#endif
 	 }
 
 	 return pFile;
@@ -836,8 +841,12 @@ bool CFiles::WriteBufferToFile(
 	ASSERT(Buffer.Size() != 0);
 
 	FILE* pFile = fopen(pszFilepath, bAppend ? "ab" : "wb");
+        //printf("CFiles::WriteBufferToFile(%s)\n", pszFilepath);
 	if (NULL != pFile)
 	{
+#ifdef __native_client__
+		setvbuf(pFile, NULL, _IOFBF, 1024*1024);
+#endif
 		bSuccess = (Buffer.Size() == fwrite( (BYTE*)Buffer, 1, Buffer.Size(), pFile ));
 		fclose( pFile );
 	}
@@ -1650,8 +1659,13 @@ bool CFiles::IsValidPath(const WCHAR *pwzPath)
 	std::string strDirPath;
 	struct stat buf;
 	UnicodeToCPath(wstrDirPath, strDirPath);
-	return !access(strDirPath.c_str(), R_OK | X_OK)
-			&& (!stat(strDirPath.c_str(), &buf) ? S_ISDIR(buf.st_mode) : false);
+        printf("IsValidPath %s:\n", strDirPath.c_str());
+        int a = access(strDirPath.c_str(), R_OK | X_OK);
+        printf("  access(): %d\n", a);
+        int s = stat(strDirPath.c_str(), &buf);
+        printf("  stat(): %d\n", s);
+        if (!s) { printf("  isdir: %d\n", S_ISDIR(buf.st_mode)); }
+	return !a && (!s ? S_ISDIR(buf.st_mode) : false);
 #endif
 }
 
@@ -1959,7 +1973,26 @@ bool CFiles::GetDriveList(
 	}
 
 	return true;
-#elif defined (__linux__) || defined (__FreeBSD__) || defined(__native_client__)
+#elif defined(__native_client__)
+	//Add the game dat directory and the home directory first.
+	drives.clear();
+	static const WCHAR wszLeft[] = {{'['},{' '},{0}}, wszRight[] = {{' '},{']'},{0}};
+	WSTRING wstr = wszLeft;
+	wstr += CFiles::wszDatPath;
+	wstr += wszRight;
+	drives.push_back(wstr);
+	wstr = wszLeft;
+	wstr += wstrHomePath;
+	wstr += wszRight;
+	drives.push_back(wstr);
+
+	wstr = wszLeft;
+	wstr += wszSlash;
+	wstr += wszData;
+	wstr += wszRight;
+	drives.push_back(wstr);
+
+#elif defined (__linux__) || defined (__FreeBSD__)
 	//Add the game dat directory and the home directory first.
 	drives.clear();
 	static const WCHAR wszLeft[] = {{'['},{' '},{0}}, wszRight[] = {{' '},{']'},{0}};
